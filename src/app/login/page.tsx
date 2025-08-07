@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [particles, setParticles] = useState<
@@ -30,20 +31,26 @@ export default function LoginPage() {
       setMessage("❌ Please enter a valid email address.");
       return;
     }
+    if (!password || password.length < 6) {
+      setMessage("❌ Password must be at least 6 characters.");
+      return;
+    }
 
     setLoading(true);
     setMessage("");
 
-    const { error } = await supabase.auth.signInWithOtp({ email });
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
     if (error) {
       setMessage("❌ Login failed: " + error.message);
     } else {
-      setMessage("✅ Check your email for the login link!");
-      // Optionally redirect after 2 seconds
+      setMessage("✅ Login successful! Redirecting...");
       setTimeout(() => {
         window.location.href = "/dashboard";
-      }, 2000);
+      }, 1500);
     }
 
     setLoading(false);
@@ -128,7 +135,7 @@ export default function LoginPage() {
                 Welcome Back
               </h2>
               <p className="text-blue-100 text-sm text-center mt-1">
-                Sign in with your email address
+                Sign in with your email and password
               </p>
             </div>
 
@@ -164,9 +171,26 @@ export default function LoginPage() {
                   </div>
                 </div>
 
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-gray-800">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      placeholder="Enter your password"
+                      className="w-full pl-4 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 text-gray-800 placeholder-gray-500"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+
                 <button
                   onClick={handleLogin}
-                  disabled={loading || !email}
+                  disabled={loading || !email || !password}
                   className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold py-4 px-6 rounded-xl hover:from-blue-600 hover:to-purple-700 focus:ring-2 focus:ring-blue-200 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                 >
                   {loading ? (
@@ -191,7 +215,7 @@ export default function LoginPage() {
                           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                         ></path>
                       </svg>
-                      Sending Magic Link...
+                      Logging in...
                     </span>
                   ) : (
                     <span className="flex items-center justify-center">
@@ -208,7 +232,7 @@ export default function LoginPage() {
                           d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                         />
                       </svg>
-                      Send Magic Link
+                      Sign In
                     </span>
                   )}
                 </button>
@@ -256,7 +280,7 @@ export default function LoginPage() {
           {/* Footer */}
           <div className="text-center mt-8">
             <p className="text-sm text-gray-500">
-              No password required • Sign in with magic link
+              Secure sign-in with email and password
             </p>
           </div>
         </div>
