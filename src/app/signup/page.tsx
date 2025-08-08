@@ -2,8 +2,12 @@
 
 import React, { useState, useEffect } from "react";
 import { Mail, Lock, User, ArrowRight, Sparkles } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 const SignUpPage = () => {
+  const router = useRouter();
+
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -13,8 +17,8 @@ const SignUpPage = () => {
 
   const [particles, setParticles] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  // Generate floating particles
   useEffect(() => {
     const generateParticles = () => {
       const newParticles = [];
@@ -48,7 +52,7 @@ const SignUpPage = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -57,20 +61,36 @@ const SignUpPage = () => {
   };
 
   const handleSubmit = async () => {
+    setError("");
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
     setIsLoading(true);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const { error } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+      options: {
+        data: {
+          full_name: formData.fullName,
+        },
+      },
+    });
 
     setIsLoading(false);
-    console.log("Sign up data:", formData);
+
+    if (error) {
+      setError(error.message);
+    } else {
+      router.push("/dashboard"); // Change this to where you want to redirect
+    }
   };
 
   const handleLoginRedirect = () => {
-    // Next.js navigation
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
-    }
+    router.push("/login");
   };
 
   return (
@@ -127,7 +147,6 @@ const SignUpPage = () => {
             </div>
 
             <div className="space-y-4">
-              {/* Full Name Input */}
               <div className="relative group">
                 <label className="block text-sm font-medium text-black mb-2">
                   Full Name
@@ -146,7 +165,6 @@ const SignUpPage = () => {
                 </div>
               </div>
 
-              {/* Email Input */}
               <div className="relative group">
                 <label className="block text-sm font-medium text-black mb-2">
                   Email Address
@@ -165,7 +183,6 @@ const SignUpPage = () => {
                 </div>
               </div>
 
-              {/* Password Input */}
               <div className="relative group">
                 <label className="block text-sm font-medium text-black mb-2">
                   Password
@@ -184,7 +201,6 @@ const SignUpPage = () => {
                 </div>
               </div>
 
-              {/* Confirm Password Input */}
               <div className="relative group">
                 <label className="block text-sm font-medium text-black mb-2">
                   Confirm Password
@@ -203,7 +219,10 @@ const SignUpPage = () => {
                 </div>
               </div>
 
-              {/* Sign Up Button */}
+              {error && (
+                <p className="text-red-500 text-sm text-center">{error}</p>
+              )}
+
               <button
                 onClick={handleSubmit}
                 disabled={isLoading}
@@ -224,7 +243,6 @@ const SignUpPage = () => {
               </button>
             </div>
 
-            {/* Features List */}
             <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl">
               <p className="text-sm font-medium text-black mb-2">
                 What you get:
@@ -249,7 +267,6 @@ const SignUpPage = () => {
               </div>
             </div>
 
-            {/* Login Link */}
             <div className="text-center mt-6">
               <p className="text-black text-sm">
                 Already have an account?{" "}
@@ -262,7 +279,6 @@ const SignUpPage = () => {
               </p>
             </div>
 
-            {/* Security Notice */}
             <p className="text-xs text-black text-center mt-4">
               Secure sign-up with email and password
             </p>
@@ -294,7 +310,6 @@ const SignUpPage = () => {
         .animation-delay-4000 {
           animation-delay: 4s;
         }
-
         @keyframes fade-in-up {
           0% {
             opacity: 0;
