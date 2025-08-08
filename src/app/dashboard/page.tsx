@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Database } from "@/types/supabase";
+import { uploadImage } from "@/lib/uploadImage"; // Import your upload function
 
 type PortfolioItem = Database["public"]["Tables"]["portfolio_items"]["Row"];
 
@@ -13,6 +14,12 @@ export default function Dashboard() {
   const [description, setDescription] = useState("");
   const [fileUrl, setFileUrl] = useState("");
   const [items, setItems] = useState<PortfolioItem[]>([]);
+
+  // New states for profile images
+  const [profileImageUrl, setProfileImageUrl] = useState("");
+  const [bannerImageUrl, setBannerImageUrl] = useState("");
+  const [uploadingProfile, setUploadingProfile] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
 
   const supabase = createClient();
 
@@ -32,6 +39,28 @@ export default function Dashboard() {
       if (session?.user?.email) {
         setEmail(session.user.email);
         setUserId(session.user.id);
+
+        console.log("User logged in:", session.user.id);
+
+        // Fetch user's profile images
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("profile_image, banner_image")
+          .eq("id", session.user.id)
+          .single();
+
+        console.log("Profile fetch result:", { profile, profileError });
+
+        if (profile) {
+          console.log("Setting profile images:", {
+            profile_image: profile.profile_image,
+            banner_image: profile.banner_image,
+          });
+          setProfileImageUrl(profile.profile_image || "");
+          setBannerImageUrl(profile.banner_image || "");
+        } else if (profileError) {
+          console.log("Profile not found, will create on first upload");
+        }
       } else {
         console.log("No user session found");
       }
@@ -85,6 +114,78 @@ export default function Dashboard() {
     }
   };
 
+  const handleProfileImageUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+
+    console.log("Starting profile image upload...", file.name);
+    setUploadingProfile(true);
+
+    try {
+      const url = await uploadImage(file, userId, "profile-images", "profile");
+      console.log("Profile image uploaded, URL:", url);
+
+      setProfileImageUrl(url);
+
+      // Update user's profile in database
+      const { data, error } = await supabase
+        .from("profiles")
+        .upsert({ id: userId, profile_image: url }, { onConflict: "id" })
+        .select();
+
+      if (error) {
+        console.error("Database update error:", error);
+        throw error;
+      }
+
+      console.log("Profile updated in database:", data);
+      alert("Profile image uploaded successfully!");
+    } catch (error) {
+      console.error("Profile image upload failed:", error);
+      alert(`Failed to upload profile image: ${error.message || error}`);
+    } finally {
+      setUploadingProfile(false);
+    }
+  };
+
+  const handleBannerImageUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+
+    console.log("Starting banner image upload...", file.name);
+    setUploadingBanner(true);
+
+    try {
+      const url = await uploadImage(file, userId, "banner-images", "banner");
+      console.log("Banner image uploaded, URL:", url);
+
+      setBannerImageUrl(url);
+
+      // Update user's banner in database
+      const { data, error } = await supabase
+        .from("profiles")
+        .upsert({ id: userId, banner_image: url }, { onConflict: "id" })
+        .select();
+
+      if (error) {
+        console.error("Database update error:", error);
+        throw error;
+      }
+
+      console.log("Banner updated in database:", data);
+      alert("Banner image uploaded successfully!");
+    } catch (error) {
+      console.error("Banner image upload failed:", error);
+      alert(`Failed to upload banner image: ${error.message || error}`);
+    } finally {
+      setUploadingBanner(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 relative overflow-hidden">
       {/* Animated Background Elements */}
@@ -102,32 +203,122 @@ export default function Dashboard() {
       </div>
 
       <div className="relative z-10 max-w-6xl mx-auto px-6 py-8">
-        {/* Header */}
+        {/* Header with Profile Section */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl mb-6 shadow-lg animate-pulse-slow">
-            <svg
-              className="w-8 h-8 text-white"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
-                clipRule="evenodd"
-              />
-            </svg>
+          {/* Banner Section */}
+          <div className="relative mb-8">
+            <div className="h-48 bg-gradient-to-r from-blue-500 to-purple-600 rounded-3xl overflow-hidden shadow-xl relative">
+              {bannerImageUrl ? (
+                <img
+                  src={bannerImageUrl}
+                  alt="Banner"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
+                  <div className="text-white/50 text-center">
+                    <svg
+                      className="w-12 h-12 mx-auto mb-2"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <p className="text-sm">Upload Banner</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Banner Upload Button */}
+              <label className="absolute top-4 right-4 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white p-2 rounded-xl cursor-pointer transition-all duration-200">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleBannerImageUpload}
+                  className="hidden"
+                />
+                {uploadingBanner ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <svg
+                    className="w-5 h-5"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                  </svg>
+                )}
+              </label>
+            </div>
+
+            {/* Profile Image */}
+            <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2">
+              <div className="relative">
+                <div className="w-32 h-32 rounded-full border-4 border-white shadow-xl overflow-hidden bg-gradient-to-r from-blue-500 to-purple-600">
+                  {profileImageUrl ? (
+                    <img
+                      src={profileImageUrl}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-white">
+                      <svg
+                        className="w-12 h-12"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+
+                {/* Profile Upload Button */}
+                <label className="absolute bottom-2 right-2 bg-white hover:bg-gray-50 text-gray-700 p-2 rounded-full cursor-pointer shadow-lg transition-all duration-200">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleProfileImageUpload}
+                    className="hidden"
+                  />
+                  {uploadingProfile ? (
+                    <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <svg
+                      className="w-4 h-4"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                    </svg>
+                  )}
+                </label>
+              </div>
+            </div>
           </div>
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">
-            Portfolio Dashboard
-          </h1>
-          <p className="text-lg text-gray-600 mb-4">
-            Create your professional portfolio in minutes
-          </p>
-          <div className="inline-flex items-center bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-white/40">
-            <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
-            <span className="text-gray-800 font-medium">
-              {email || "Loading..."}
-            </span>
+
+          <div className="mt-20">
+            <h1 className="text-4xl font-bold text-gray-800 mb-2">
+              Portfolio Dashboard
+            </h1>
+            <p className="text-lg text-gray-600 mb-4">
+              Create your professional portfolio in minutes
+            </p>
+            <div className="inline-flex items-center bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-white/40">
+              <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+              <span className="text-gray-800 font-medium">
+                {email || "Loading..."}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -256,7 +447,7 @@ export default function Dashboard() {
                   </div>
                   <div className="flex items-center">
                     <div className="w-2 h-2 bg-purple-400 rounded-full mr-2 animate-pulse animation-delay-1000"></div>
-                    <span>Custom URL</span>
+                    <span>Custom Images</span>
                   </div>
                 </div>
               </div>
@@ -447,3 +638,5 @@ export default function Dashboard() {
     </div>
   );
 }
+// This code is a React component for a portfolio dashboard that allows users to upload projects and manage their profile images. It includes animated background elements, a form for adding new projects, and a preview of the user's portfolio items. The component uses Supabase for authentication and data storage.
+// The uploadImage function handles image uploads to Supabase storage, returning the public URL of the uploaded image. The component also manages the state for user authentication, project details, and image URLs, providing a user-friendly interface for portfolio management.
